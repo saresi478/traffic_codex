@@ -1,0 +1,46 @@
+# Example configuration for Axis Q1806-LE cameras. Adjust hosts, credentials,
+# profiles, and schedule times to match your deployment.
+cameras:
+  q1806_entry:
+    host: 192.168.0.90
+    protocol: http
+    supports_profiles: true  # set to false for cameras that cannot use profiles
+    username_env: AXIS_Q1806_USER
+    password_env: AXIS_Q1806_PASS
+
+profiles:
+  day:
+    description: Balanced for daylight with WDR enabled.
+    parameters:
+      ImageSource.I0.DayNightMode: day
+      ImageSource.I0.Exposure: automatic
+      ImageSource.I0.ExposureCompensation: "0"
+      ImageSource.I0.Shutter: "1/120"
+      ImageSource.I0.Gain: "6"
+      ImageSource.I0.WDR: on
+      ImageSource.I0.WhiteBalance: automatic
+      ImageSource.I0.Saturation: "50"
+      ImageSource.I0.Sharpness: "50"
+  night:
+    description: Noise-reduced, IR-friendly tuning for night.
+    parameters:
+      ImageSource.I0.DayNightMode: night
+      ImageSource.I0.Exposure: automatic
+      ImageSource.I0.Shutter: "1/30"
+      ImageSource.I0.Gain: "18"
+      ImageSource.I0.NoiseReduction: high
+      ImageSource.I0.WDR: off
+      ImageSource.I0.IRCutFilter: auto
+      ImageSource.I0.Saturation: "35"
+      ImageSource.I0.Sharpness: "40"
+
+schedules:
+  day_night:
+    timezone: "UTC"
+    entries:
+      - profile: day
+        start: "06:30"
+        end: "18:30"
+      - profile: night
+        start: "18:30"
+        end: "06:30"
