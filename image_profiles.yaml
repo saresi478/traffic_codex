@@ -1,0 +1,24 @@
+# Example image profiles for Axis Q1806-LE to toggle between day and night.
+# Adjust values to match the lighting at your site; they will be sent to the
+# camera through the VAPIX param.cgi endpoint.
+profiles:
+  day:
+    description: Balanced for daylight with WDR enabled.
+    parameters:
+      ImageSource.I0.DayNightMode: day
+      ImageSource.I0.Exposure: automatic
+      ImageSource.I0.ExposureCompensation: "0"
+      ImageSource.I0.WDR: on
+      ImageSource.I0.WhiteBalance: automatic
+      ImageSource.I0.Saturation: "50"
+      ImageSource.I0.Sharpness: "50"
+  night:
+    description: Noise-reduced, IR-friendly tuning for night.
+    parameters:
+      ImageSource.I0.DayNightMode: night
+      ImageSource.I0.Exposure: automatic
+      ImageSource.I0.NoiseReduction: high
+      ImageSource.I0.WDR: off
+      ImageSource.I0.IRCutFilter: auto
+      ImageSource.I0.Saturation: "35"
+      ImageSource.I0.Sharpness: "40"
