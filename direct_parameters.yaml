@@ -1,0 +1,10 @@
+# Apply these parameters directly using --parameters-file when your camera
+# does not support onboard profiles. Values are examples for Axis Q1806-LE.
+ImageSource.I0.DayNightMode: day
+ImageSource.I0.Exposure: manual
+ImageSource.I0.Shutter: "1/250"
+ImageSource.I0.Gain: "8"
+ImageSource.I0.WDR: on
+ImageSource.I0.WhiteBalance: automatic
+ImageSource.I0.Saturation: "45"
+ImageSource.I0.Sharpness: "48"
