@@ -8,8 +8,6 @@ profiles:
       ImageSource.I0.DayNightMode: day
       ImageSource.I0.Exposure: automatic
       ImageSource.I0.ExposureCompensation: "0"
-      ImageSource.I0.Shutter: "1/120"
-      ImageSource.I0.Gain: "6"
       ImageSource.I0.WDR: on
       ImageSource.I0.WhiteBalance: automatic
       ImageSource.I0.Saturation: "50"
@@ -19,8 +17,6 @@ profiles:
     parameters:
       ImageSource.I0.DayNightMode: night
       ImageSource.I0.Exposure: automatic
-      ImageSource.I0.Shutter: "1/30"
-      ImageSource.I0.Gain: "18"
       ImageSource.I0.NoiseReduction: high
       ImageSource.I0.WDR: off
       ImageSource.I0.IRCutFilter: auto
