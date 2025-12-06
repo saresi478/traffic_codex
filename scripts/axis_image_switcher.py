@@ -43,7 +43,6 @@ class CameraConfig:
     name: str
     host: str
     protocol: str = "http"
-    supports_profiles: bool = True
     username: Optional[str] = None
     password: Optional[str] = None
     username_env: Optional[str] = None
@@ -257,15 +256,10 @@ def load_cameras(raw_cameras: object) -> Dict[str, CameraConfig]:
         if protocol not in {"http", "https"}:
             raise ValueError(f"Camera '{name}' has unsupported protocol '{protocol}'.")
 
-        supports_profiles = entry.get("supports_profiles", True)
-        if not isinstance(supports_profiles, bool):
-            raise ValueError(f"Camera '{name}' has non-boolean 'supports_profiles' value.")
-
         cameras[name] = CameraConfig(
             name=name,
             host=str(entry["host"]),
             protocol=str(protocol),
-            supports_profiles=supports_profiles,
             username=entry.get("username"),
             password=entry.get("password"),
             username_env=entry.get("username_env"),
@@ -309,26 +303,16 @@ def load_schedules(raw_schedules: object) -> Dict[str, Schedule]:
 def load_config(config_path: Path) -> AxisConfig:
     data = yaml.safe_load(config_path.read_text())
     if not isinstance(data, dict):
-        raise ValueError(f"Config file {config_path} must contain mappings for cameras and optional profiles.")
+        raise ValueError(f"Config file {config_path} must contain mappings for cameras and profiles.")
 
-    if "cameras" not in data:
-        raise ValueError("Config must define 'cameras'.")
+    if "profiles" not in data or "cameras" not in data:
+        raise ValueError("Config must define both 'cameras' and 'profiles'.")
 
-    raw_profiles = data.get("profiles", {})
-    profiles = load_profiles(raw_profiles) if raw_profiles is not None else {}
+    profiles = load_profiles(data["profiles"])
     cameras = load_cameras(data["cameras"])
     schedules = load_schedules(data.get("schedules"))
 
     return AxisConfig(cameras=cameras, profiles=profiles, schedules=schedules)
-
-
-def load_parameter_file(path: Path) -> Dict[str, str]:
-    """Load a simple YAML mapping of parameter names to values."""
-
-    data = yaml.safe_load(path.read_text())
-    if not isinstance(data, dict):
-        raise ValueError(f"Parameter file {path} must contain a mapping of VAPIX parameters to values.")
-    return {str(key): str(value) for key, value in data.items()}
 
 
 def parse_args() -> argparse.Namespace:
@@ -336,13 +320,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--camera", required=True, help="Camera name defined in the config file")
     parser.add_argument("--profile", help="Profile name to apply (e.g., 'day' or 'night')")
     parser.add_argument("--schedule", help="Schedule name to use for picking a profile")
-    parser.add_argument(
-        "--parameters-file",
-        help=(
-            "Path to a YAML mapping of parameters to apply directly (bypasses profiles and schedules). "
-            "Useful when the camera lacks profile support."
-        ),
-    )
     parser.add_argument(
         "--config",
         default="axis_config.yaml",
@@ -367,49 +344,27 @@ def main() -> None:
     except ValueError as exc:
         sys.exit(str(exc))
 
-    modes = [bool(args.parameters_file), bool(args.profile), bool(args.schedule)]
-    if sum(modes) == 0:
-        sys.exit("Provide one of --parameters-file, --profile, or --schedule to choose what to apply.")
-    if sum(modes) > 1:
-        sys.exit("Specify only one of --parameters-file, --profile, or --schedule.")
+    if not args.profile and not args.schedule:
+        sys.exit("Provide either --profile or --schedule to choose which profile to apply.")
+    if args.profile and args.schedule:
+        sys.exit("Specify only one of --profile or --schedule.")
 
-    chosen_parameters: Optional[Dict[str, str]] = None
-    summary: str = ""
-
-    if args.parameters_file:
-        param_path = Path(args.parameters_file)
-        chosen_parameters = load_parameter_file(param_path)
-        summary = f"parameters from {param_path}"
+    if args.profile:
+        profile_name = args.profile
     else:
-        if not camera.supports_profiles:
-            sys.exit(
-                f"Camera '{camera.name}' is marked as not supporting profiles. "
-                "Use --parameters-file to apply raw settings."
-            )
+        schedule_name = args.schedule
+        assert schedule_name is not None
+        schedule = config.schedules.get(schedule_name)
+        if schedule is None:
+            available = ", ".join(sorted(config.schedules)) or "none"
+            sys.exit(f"Schedule '{schedule_name}' not found. Available schedules: {available}.")
+        profile_name = schedule.resolve_profile()
 
-        if args.profile:
-            profile_name = args.profile
-        else:
-            schedule_name = args.schedule
-            assert schedule_name is not None
-            schedule = config.schedules.get(schedule_name)
-            if schedule is None:
-                available = ", ".join(sorted(config.schedules)) or "none"
-                sys.exit(f"Schedule '{schedule_name}' not found. Available schedules: {available}.")
-            profile_name = schedule.resolve_profile()
+    if profile_name not in config.profiles:
+        available = ", ".join(sorted(config.profiles))
+        sys.exit(f"Profile '{profile_name}' not found. Available profiles: {available}.")
 
-        if profile_name not in config.profiles:
-            available = ", ".join(sorted(config.profiles)) or "none"
-            sys.exit(f"Profile '{profile_name}' not found. Available profiles: {available}.")
-
-        profile = config.profiles[profile_name]
-        chosen_parameters = profile.normalized_parameters()
-        summary = profile.description or ""
-        if summary:
-            summary = f" ({summary})"
-        summary = f"profile '{profile.name}'{summary}"
-
-    assert chosen_parameters is not None
+    profile = config.profiles[profile_name]
     client = AxisCameraClient(
         host=camera.host,
         username=username,
@@ -420,11 +375,7 @@ def main() -> None:
     )
 
     try:
-        if args.parameters_file:
-            response = client.update_parameters(chosen_parameters)
-        else:
-            profile_obj = config.profiles[profile_name]
-            response = client.apply_profile(profile_obj)
+        response = client.apply_profile(profile)
     except requests.exceptions.HTTPError as exc:
         status = exc.response.status_code if exc.response is not None else "unknown"
         if status in {401, 403}:
@@ -441,13 +392,14 @@ def main() -> None:
     except RuntimeError as exc:
         sys.exit(str(exc))
 
-    if args.parameters_file:
-        print(f"Applied {summary} to camera '{camera.name}'. HTTP status: {response.status_code}.")
-    elif response is None:
-        print(f"Profile '{profile_obj.name}'{summary} is already applied on camera '{camera.name}'. No changes made.")
+    summary = profile.description or ""
+    if summary:
+        summary = f" ({summary})"
+    if response is None:
+        print(f"Profile '{profile.name}'{summary} is already applied on camera '{camera.name}'. No changes made.")
     else:
         print(
-            f"Applied profile '{profile_obj.name}'{summary} to camera '{camera.name}'. HTTP status: {response.status_code}."
+            f"Applied profile '{profile.name}'{summary} to camera '{camera.name}'. HTTP status: {response.status_code}."
         )
 
 
