@@ -25,6 +25,13 @@ profiles are defined in YAML so deployments can be driven by configuration.
 
 ## Usage
 
+   - Declare the username and password using
+
+```bash
+export AXIS_Q1806_USER="your_username"
+export AXIS_Q1806_PASS="your_password"
+```
+
 Apply a profile to your camera by name:
 
 ```bash
