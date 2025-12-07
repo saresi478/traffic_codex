@@ -9,33 +9,58 @@ cameras:
 
 profiles:
   day:
-    description: Balanced for daylight with WDR enabled.
+    description: Daytime profile for traffic overview (shorter exposure, less gain).
     parameters:
-      ImageSource.I0.DayNightMode: day
-      ImageSource.I0.Exposure: automatic
-      ImageSource.I0.ExposureCompensation: "0"
-      ImageSource.I0.WDR: on
-      ImageSource.I0.WhiteBalance: automatic
-      ImageSource.I0.Saturation: "50"
-      ImageSource.I0.Sharpness: "50"
-  night:
-    description: Noise-reduced, IR-friendly tuning for night.
-    parameters:
-      ImageSource.I0.DayNightMode: night
-      ImageSource.I0.Exposure: automatic
-      ImageSource.I0.NoiseReduction: high
-      ImageSource.I0.WDR: off
-      ImageSource.I0.IRCutFilter: auto
-      ImageSource.I0.Saturation: "35"
-      ImageSource.I0.Sharpness: "40"
+      # Scene / global
+      root.ImageSource.I0.SceneProfile: traffic_overview
 
-schedules:
-  day_night:
-    timezone: "UTC"
-    entries:
-      - profile: day
-        start: "06:30"
-        end: "18:30"
-      - profile: night
-        start: "18:30"
-        end: "06:30"
+      # Day/night behavior
+      root.ImageSource.I0.DayNight.IrCutFilter: auto
+
+      # Exposure / gain: favor less motion blur
+      root.ImageSource.I0.Sensor.Exposure: auto
+      root.ImageSource.I0.Sensor.MinExposureTime: "1"
+      # Shorter max exposure to reduce motion blur in daylight
+      root.ImageSource.I0.Sensor.MaxExposureTime: "2000"
+      # Lower gain since there should be plenty of light
+      root.ImageSource.I0.Sensor.MinGain: "0"
+      root.ImageSource.I0.Sensor.MaxGain: "50"
+
+      # Image “look”
+      root.ImageSource.I0.Sensor.Brightness: "50"
+      root.ImageSource.I0.Sensor.Contrast: "50"
+      root.ImageSource.I0.Sensor.ColorLevel: "50"
+      root.ImageSource.I0.Sensor.Sharpness: "50"
+      root.ImageSource.I0.Sensor.SNF: "70"   # moderate spatial noise filter
+      root.ImageSource.I0.Sensor.TNF: "70"   # moderate temporal noise filter
+      root.ImageSource.I0.Sensor.Defog: "off"
+      root.ImageSource.I0.Sensor.WhiteBalance: auto
+
+  night:
+    description: Night profile with more gain, longer exposure, stronger noise reduction.
+    parameters:
+      # Keep same scene profile
+      root.ImageSource.I0.SceneProfile: traffic_overview
+
+      # Let camera handle IR cut, keep auto
+      root.ImageSource.I0.DayNight.IrCutFilter: auto
+
+      # Exposure / gain: allow more light and noise reduction
+      root.ImageSource.I0.Sensor.Exposure: auto
+      root.ImageSource.I0.Sensor.MinExposureTime: "1"
+      # Allow longer shutter for night
+      root.ImageSource.I0.Sensor.MaxExposureTime: "8333"
+      # Allow full gain range
+      root.ImageSource.I0.Sensor.MinGain: "0"
+      root.ImageSource.I0.Sensor.MaxGain: "100"
+
+      # Image “look” – slightly reduced sharpness + stronger NR for night
+      root.ImageSource.I0.Sensor.Brightness: "50"
+      root.ImageSource.I0.Sensor.Contrast: "50"
+      root.ImageSource.I0.Sensor.ColorLevel: "45"
+      root.ImageSource.I0.Sensor.Sharpness: "40"
+      root.ImageSource.I0.Sensor.SNF: "100"  # max spatial noise filter
+      root.ImageSource.I0.Sensor.TNF: "100"  # max temporal noise filter
+      root.ImageSource.I0.Sensor.Defog: "on"
+      root.ImageSource.I0.Sensor.DefogEffect: "50"
+      root.ImageSource.I0.Sensor.WhiteBalance: auto
